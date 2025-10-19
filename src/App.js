@@ -17,9 +17,9 @@ const ERROR = {
 class App {
     async run() {
         try {
-            Console.print("덧셈할 문자열을 입력해 주세요.");
-            const input = await Console.readLineAsync();
-
+            const input = await Console.readLineAsync(
+                "덧셈할 문자열을 입력해 주세요."
+            );
             const result = calculate(input);
             Console.print(`결과 : ${result}`);
         } catch (e) {
