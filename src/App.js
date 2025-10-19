@@ -11,6 +11,7 @@ const ERROR = {
     MIXED_DELIMS:
         "[ERROR] 커스텀 구분자 사용 시 기본 구분자를 함께 사용할 수 없습니다.",
     DISALLOWED_CHAR: "[ERROR] 허용되지 않은 문자가 포함되어 있습니다.",
+    BAD_DELIM_PLACEMENT: "[ERROR] 구분자가 연속이거나 선/후행 위치에 있습니다.",
 };
 
 class App {
@@ -31,15 +32,9 @@ export function calculate(input) {
         extractDelimiterAndBody(input);
     validateAllowedCharacters(body, isCustom, customChar);
 
-    const splitter =
-        delimiter instanceof RegExp ? delimiter : new RegExp(delimiter, "g");
-    const tokens = body.split(splitter);
-
-    tokens.forEach((t) => {
-        if (!POSITIVE_INT_REGEX.test(t))
-            throw new Error(ERROR.NOT_POSITIVE_INT);
-    });
-    return tokens.reduce((acc, t) => acc + Number(t), 0);
+    const tokens = tokenize(body, delimiter);
+    validateTokens(tokens);
+    return sum(tokens);
 }
 
 function extractDelimiterAndBody(input) {
@@ -95,6 +90,30 @@ function validateAllowedCharacters(body, isCustom, customChar) {
             throw new Error(ERROR.DISALLOWED_CHAR);
         }
     }
+}
+
+function tokenize(body, delimiter) {
+    const splitter =
+        delimiter instanceof RegExp ? delimiter : new RegExp(delimiter, "g");
+    const raw = body.split(splitter);
+
+    if (raw.some((t) => t === "")) throw new Error(ERROR.BAD_DELIM_PLACEMENT);
+
+    const tokens = raw.map((t) => t.trim());
+    if (tokens.some((t) => /\s/.test(t)))
+        throw new Error(ERROR.NOT_POSITIVE_INT);
+    return tokens;
+}
+
+function validateTokens(tokens) {
+    for (const t of tokens) {
+        if (!POSITIVE_INT_REGEX.test(t))
+            throw new Error(ERROR.NOT_POSITIVE_INT);
+    }
+}
+
+function sum(tokens) {
+    return tokens.reduce((acc, t) => acc + Number(t), 0);
 }
 
 function findFirstNewlineIndex(str) {
