@@ -41,19 +41,28 @@ function extractDelimiterAndBody(input) {
         return { delimiter: DEFAULT_DELIMS_REGEX, body: input };
     }
     const nlIdx = findFirstNewlineIndex(input);
-    if (nlIdx === -1) throw new Error(ERROR.CUSTOM_FORMAT);
+    if (nlIdx !== -1) {
+        const rawDelim = input.slice(2, nlIdx);
+        if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+        let bodyStart = nlIdx + 1;
+        if (input[nlIdx] === "\r" && input[nlIdx + 1] === "\n")
+            bodyStart = nlIdx + 2;
+        const body = input.slice(bodyStart);
+        if (!body.length) throw new Error(ERROR.EMPTY_BODY);
+        return { delimiter: rawDelim, body };
+    }
 
-    const rawDelim = input.slice(2, nlIdx);
-    if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+    // 리터럴 "\n"
+    const escIdx = input.indexOf("\\n");
+    if (escIdx !== -1) {
+        const rawDelim = input.slice(2, escIdx);
+        if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+        const body = input.slice(escIdx + 2);
+        if (!body.length) throw new Error(ERROR.EMPTY_BODY);
+        return { delimiter: rawDelim, body };
+    }
 
-    let bodyStart = nlIdx + 1;
-    if (input[nlIdx] === "\r" && input[nlIdx + 1] === "\n")
-        bodyStart = nlIdx + 2;
-
-    const body = input.slice(bodyStart);
-    if (!body.length) throw new Error(ERROR.EMPTY_BODY);
-
-    return { delimiter: rawDelim, body };
+    throw new Error(ERROR.CUSTOM_FORMAT);
 }
 
 function findFirstNewlineIndex(str) {
