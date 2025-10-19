@@ -8,6 +8,9 @@ const ERROR = {
     EMPTY_BODY: "[ERROR] 숫자 부분이 비어 있습니다.",
     CUSTOM_FORMAT: "[ERROR] 커스텀 구분자 형식이 올바르지 않습니다.",
     CUSTOM_LENGTH: "[ERROR] 커스텀 구분자는 딱 1글자여야 합니다.",
+    MIXED_DELIMS:
+        "[ERROR] 커스텀 구분자 사용 시 기본 구분자를 함께 사용할 수 없습니다.",
+    DISALLOWED_CHAR: "[ERROR] 허용되지 않은 문자가 포함되어 있습니다.",
 };
 
 class App {
@@ -24,7 +27,10 @@ export default App;
 export function calculate(input) {
     if (input === "") return 0;
 
-    const { delimiter, body } = extractDelimiterAndBody(input);
+    const { delimiter, body, isCustom, customChar } =
+        extractDelimiterAndBody(input);
+    validateAllowedCharacters(body, isCustom, customChar);
+
     const splitter =
         delimiter instanceof RegExp ? delimiter : new RegExp(delimiter, "g");
     const tokens = body.split(splitter);
@@ -38,7 +44,12 @@ export function calculate(input) {
 
 function extractDelimiterAndBody(input) {
     if (!input.startsWith("//")) {
-        return { delimiter: DEFAULT_DELIMS_REGEX, body: input };
+        return {
+            delimiter: DEFAULT_DELIMS_REGEX,
+            body: input,
+            isCustom: false,
+            customChar: null,
+        };
     }
     const nlIdx = findFirstNewlineIndex(input);
     if (nlIdx !== -1) {
@@ -49,7 +60,12 @@ function extractDelimiterAndBody(input) {
             bodyStart = nlIdx + 2;
         const body = input.slice(bodyStart);
         if (!body.length) throw new Error(ERROR.EMPTY_BODY);
-        return { delimiter: escapeForRegex(rawDelim), body };
+        return {
+            delimiter: escapeForRegex(rawDelim),
+            body,
+            isCustom: true,
+            customChar: rawDelim,
+        };
     }
     const escIdx = input.indexOf("\\n");
     if (escIdx !== -1) {
@@ -57,9 +73,28 @@ function extractDelimiterAndBody(input) {
         if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
         const body = input.slice(escIdx + 2);
         if (!body.length) throw new Error(ERROR.EMPTY_BODY);
-        return { delimiter: escapeForRegex(rawDelim), body };
+        return {
+            delimiter: escapeForRegex(rawDelim),
+            body,
+            isCustom: true,
+            customChar: rawDelim,
+        };
     }
     throw new Error(ERROR.CUSTOM_FORMAT);
+}
+
+function validateAllowedCharacters(body, isCustom, customChar) {
+    for (const ch of body) {
+        if (/\d/.test(ch) || ch === " ") continue;
+        if (isCustom) {
+            if (ch === customChar) continue;
+            if (ch === "," || ch === ":") throw new Error(ERROR.MIXED_DELIMS);
+            throw new Error(ERROR.DISALLOWED_CHAR);
+        } else {
+            if (ch === "," || ch === ":") continue;
+            throw new Error(ERROR.DISALLOWED_CHAR);
+        }
+    }
 }
 
 function findFirstNewlineIndex(str) {
