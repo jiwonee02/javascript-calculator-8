@@ -25,9 +25,9 @@ export function calculate(input) {
     if (input === "") return 0;
 
     const { delimiter, body } = extractDelimiterAndBody(input);
-    const tokens = body.split(
-        delimiter instanceof RegExp ? delimiter : new RegExp(delimiter, "g")
-    );
+    const splitter =
+        delimiter instanceof RegExp ? delimiter : new RegExp(delimiter, "g");
+    const tokens = body.split(splitter);
 
     tokens.forEach((t) => {
         if (!POSITIVE_INT_REGEX.test(t))
@@ -49,19 +49,16 @@ function extractDelimiterAndBody(input) {
             bodyStart = nlIdx + 2;
         const body = input.slice(bodyStart);
         if (!body.length) throw new Error(ERROR.EMPTY_BODY);
-        return { delimiter: rawDelim, body };
+        return { delimiter: escapeForRegex(rawDelim), body };
     }
-
-    // 리터럴 "\n"
     const escIdx = input.indexOf("\\n");
     if (escIdx !== -1) {
         const rawDelim = input.slice(2, escIdx);
         if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
         const body = input.slice(escIdx + 2);
         if (!body.length) throw new Error(ERROR.EMPTY_BODY);
-        return { delimiter: rawDelim, body };
+        return { delimiter: escapeForRegex(rawDelim), body };
     }
-
     throw new Error(ERROR.CUSTOM_FORMAT);
 }
 
@@ -71,4 +68,8 @@ function findFirstNewlineIndex(str) {
     if (iLF === -1) return iCR;
     if (iCR === -1) return iLF;
     return Math.min(iLF, iCR);
+}
+
+function escapeForRegex(ch) {
+    return ch.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
