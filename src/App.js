@@ -1,7 +1,7 @@
 import { Console } from "@woowacourse/mission-utils";
 
 const DEFAULT_DELIMS_REGEX = /[,:]/;
-const POSITIVE_INTREGEX = /^[1-9]\d*$/;
+const POSITIVE_INT_REGEX = /^[1-9]\d*$/;
 
 const ERROR = {
     NOT_POSITIVE_INT: "[ERROR] 양의 정수만 입력할 수 있습니다.",
@@ -16,10 +16,18 @@ const ERROR = {
 
 class App {
     async run() {
-        Console.print("덧셈할 문자열을 입력해 주세요.");
-        const input = await Console.readLineAsync();
-        const result = calculate(input);
-        Console.print(`결과: ${result}`);
+        try {
+            Console.print("덧셈할 문자열을 입력해 주세요.");
+            const input = await Console.readLineAsync();
+
+            const result = calculate(input);
+            Console.print(`결과 : ${result}`);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            const printed = msg.startsWith("[ERROR]") ? msg : `[ERROR] ${msg}`;
+            Console.print(printed);
+            throw e instanceof Error ? e : new Error(printed);
+        }
     }
 }
 
@@ -34,6 +42,7 @@ export function calculate(input) {
 
     const tokens = tokenize(body, delimiter);
     validateTokens(tokens);
+
     return sum(tokens);
 }
 
@@ -46,36 +55,56 @@ function extractDelimiterAndBody(input) {
             customChar: null,
         };
     }
+
     const nlIdx = findFirstNewlineIndex(input);
     if (nlIdx !== -1) {
-        const rawDelim = input.slice(2, nlIdx);
-        if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+        const rawDelimReal = input.slice(2, nlIdx);
+        if (rawDelimReal.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+
         let bodyStart = nlIdx + 1;
         if (input[nlIdx] === "\r" && input[nlIdx + 1] === "\n")
             bodyStart = nlIdx + 2;
-        const body = input.slice(bodyStart);
-        if (!body.length) throw new Error(ERROR.EMPTY_BODY);
+
+        const bodyReal = input.slice(bodyStart);
+        if (bodyReal.length === 0) throw new Error(ERROR.EMPTY_BODY);
+
         return {
-            delimiter: escapeForRegex(rawDelim),
-            body,
+            delimiter: escapeForRegex(rawDelimReal),
+            body: bodyReal,
             isCustom: true,
-            customChar: rawDelim,
+            customChar: rawDelimReal,
         };
     }
+
     const escIdx = input.indexOf("\\n");
     if (escIdx !== -1) {
-        const rawDelim = input.slice(2, escIdx);
-        if (rawDelim.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
-        const body = input.slice(escIdx + 2);
-        if (!body.length) throw new Error(ERROR.EMPTY_BODY);
+        const rawDelimEsc = input.slice(2, escIdx);
+        if (rawDelimEsc.length !== 1) throw new Error(ERROR.CUSTOM_LENGTH);
+
+        const bodyEsc = input.slice(escIdx + 2);
+        if (bodyEsc.length === 0) throw new Error(ERROR.EMPTY_BODY);
+
         return {
-            delimiter: escapeForRegex(rawDelim),
-            body,
+            delimiter: escapeForRegex(rawDelimEsc),
+            body: bodyEsc,
             isCustom: true,
-            customChar: rawDelim,
+            customChar: rawDelimEsc,
         };
     }
+
     throw new Error(ERROR.CUSTOM_FORMAT);
+}
+
+function findFirstNewlineIndex(str) {
+    const iLF = str.indexOf("\n");
+    const iCR = str.indexOf("\r");
+    if (iLF === -1) return iCR;
+    if (iCR === -1) return iLF;
+    return Math.min(iLF, iCR);
+}
+
+function escapeForRegex(ch) {
+    return ch.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
 
 function validateAllowedCharacters(body, isCustom, customChar) {
@@ -102,6 +131,7 @@ function tokenize(body, delimiter) {
     const tokens = raw.map((t) => t.trim());
     if (tokens.some((t) => /\s/.test(t)))
         throw new Error(ERROR.NOT_POSITIVE_INT);
+
     return tokens;
 }
 
@@ -114,16 +144,4 @@ function validateTokens(tokens) {
 
 function sum(tokens) {
     return tokens.reduce((acc, t) => acc + Number(t), 0);
-}
-
-function findFirstNewlineIndex(str) {
-    const iLF = str.indexOf("\n");
-    const iCR = str.indexOf("\r");
-    if (iLF === -1) return iCR;
-    if (iCR === -1) return iLF;
-    return Math.min(iLF, iCR);
-}
-
-function escapeForRegex(ch) {
-    return ch.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
